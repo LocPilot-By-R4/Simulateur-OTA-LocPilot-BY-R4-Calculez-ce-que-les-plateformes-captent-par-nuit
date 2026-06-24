@@ -885,6 +885,43 @@
 
       function clean(value) { return String(value || '').trim(); }
 
+      function getTrackingInfo() {
+        const params = new URLSearchParams(window.location.search);
+        const getParam = (key) => clean(params.get(key));
+        const url = new URL(window.location.href);
+        const cleanPageUrl = `${url.origin}${url.pathname}`;
+        const referrer = clean(document.referrer);
+        const referrerHost = (() => {
+          try { return referrer ? new URL(referrer).hostname : ''; } catch (_) { return ''; }
+        })();
+
+        const info = {
+          utmSource: getParam('utm_source'),
+          utmMedium: getParam('utm_medium'),
+          utmCampaign: getParam('utm_campaign'),
+          utmContent: getParam('utm_content'),
+          utmTerm: getParam('utm_term'),
+          fbclid: getParam('fbclid'),
+          gclid: getParam('gclid'),
+          landingUrl: window.location.href,
+          cleanPageUrl,
+          referrer,
+          referrerHost,
+        };
+
+        info.sourceLabel = info.utmSource
+          ? info.utmSource
+          : (referrerHost || 'direct / sans UTM');
+        info.mediumLabel = info.utmMedium || (referrerHost ? 'referral' : 'direct');
+        info.campaignLabel = info.utmCampaign || 'non renseignée';
+        info.contentLabel = info.utmContent || 'non renseigné';
+        info.termLabel = info.utmTerm || 'non renseigné';
+        info.hasPaidClickId = Boolean(info.fbclid || info.gclid);
+        return info;
+      }
+
+      const trackingInfo = getTrackingInfo();
+
       function getPlatformRates() {
         if (selectedPlatform === 'airbnb') {
           const mode = $('airbnbMode').value;
@@ -970,7 +1007,15 @@
           recoverableNet,
           annualCaptured,
           annualRecoverable,
-          source: 'simulateur-ota-github-pages',
+          source: trackingInfo.sourceLabel,
+          trafficMedium: trackingInfo.mediumLabel,
+          trafficCampaign: trackingInfo.campaignLabel,
+          trafficContent: trackingInfo.contentLabel,
+          trafficTerm: trackingInfo.termLabel,
+          trafficReferrer: trackingInfo.referrerHost || trackingInfo.referrer || 'aucun',
+          landingUrl: trackingInfo.landingUrl,
+          cleanPageUrl: trackingInfo.cleanPageUrl,
+          clickIdDetected: trackingInfo.hasPaidClickId,
           pageUrl: window.location.href,
           simulatedAt: new Date().toLocaleString('fr-FR'),
         };
@@ -1038,9 +1083,18 @@
         lines.push(
           '',
           'Simulation :',
-          `Source : ${sim.source || 'simulateur-ota'}`,
           `Date : ${sim.simulatedAt || '-'}`,
           `Page : ${sim.pageUrl || window.location.href}`,
+          '',
+          'Origine du lead :',
+          `Source : ${sim.source || 'direct / sans UTM'}`,
+          `Support : ${sim.trafficMedium || '-'}`,
+          `Campagne : ${sim.trafficCampaign || '-'}`,
+          `Contenu : ${sim.trafficContent || '-'}`,
+          `Mot-clé : ${sim.trafficTerm || '-'}`,
+          `Référent : ${sim.trafficReferrer || 'aucun'}`,
+          `Click ID détecté : ${sim.clickIdDetected ? 'oui' : 'non'}`,
+          '',
           `Plateforme : ${sim.platformLabel || '-'}`,
           `Prix moyen / nuit : ${euroNight(sim.nightPrice)}`,
           `Nuitées similaires / an : ${Math.round(sim.annualNights || 0).toLocaleString('fr-FR')}`,
